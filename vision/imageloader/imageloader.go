@@ -129,6 +129,8 @@ func (p *ImageLoader) readSamples() {
 			if err != io.EOF {
 				p.errChan <- err
 				break
+			} else {
+				break
 			}
 		}
 		if m == nil {

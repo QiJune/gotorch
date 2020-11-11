@@ -3,7 +3,7 @@ package recordio
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
+	"io"
 	"os"
 
 	"github.com/wangkuiyi/recordio"
@@ -68,7 +68,7 @@ func (r *Reader) Next() (*ImageRecord, error) {
 	if !success {
 		r.CurScanner++
 		if r.CurScanner == len(r.Scanners) {
-			return nil, fmt.Errorf("No record to read")
+			return nil, io.EOF
 		}
 		return r.Next()
 	}
