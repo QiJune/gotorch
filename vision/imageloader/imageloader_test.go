@@ -43,7 +43,9 @@ func TestImageTgzLoaderError(t *testing.T) {
 		transforms.ToTensor(),
 		transforms.Normalize([]float32{0.1307}, []float32{0.3081}),
 	)
-	loader, e := New(f.Name(), vocab, trans, 3, 3, 1, false, "gray")
+	ir, e := NewTgzImageReader(f.Name(), vocab, "gray")
+	a.NoError(e)
+	loader, e := New(ir, trans, 3, 3, 1, false)
 	defer torch.FinishGC()
 	a.NoError(e)
 	a.False(loader.Scan())
@@ -64,7 +66,9 @@ func TestImageTgzLoader(t *testing.T) {
 		transforms.ToTensor(),
 		transforms.Normalize([]float32{0.1307}, []float32{0.3081}),
 	)
-	loader, e := New(fn, vocab, trans, 3, 3, 1, false, "rgb")
+	ir, e := NewTgzImageReader(fn, vocab, "rgb")
+	a.NoError(e)
+	loader, e := New(ir, trans, 3, 3, 1, false)
 	a.NoError(e)
 	{
 		// first iteration
@@ -105,7 +109,9 @@ func TestCornerCase(t *testing.T) {
 		transforms.ToTensor(),
 		transforms.Normalize([]float32{0.1307}, []float32{0.3081}),
 	)
-	loader, e := New(fn, vocab, trans, 5, 3, 1, false, "rgb")
+	ir, e := NewTgzImageReader(fn, vocab, "rgb")
+	a.NoError(e)
+	loader, e := New(ir, trans, 5, 3, 1, false)
 	a.NoError(e)
 	a.NotPanics(func() {
 		for loader.Scan() {
@@ -116,8 +122,8 @@ func TestCornerCase(t *testing.T) {
 	})
 	a.NoError(loader.Err())
 
-	a.Panics(func() { New(fn, vocab, trans, -1, 3, 1, false, "rgb") })
-	a.Panics(func() { New(fn, vocab, trans, 0, 3, 1, false, "rgb") })
+	a.Panics(func() { New(ir, trans, -1, 3, 1, false) })
+	a.Panics(func() { New(ir, trans, 0, 3, 1, false) })
 
 }
 
@@ -140,8 +146,11 @@ func TestImageTgzLoaderHeavy(t *testing.T) {
 		transforms.RandomHorizontalFlip(0.5),
 		transforms.ToTensor(),
 		transforms.Normalize([]float32{0.485, 0.456, 0.406}, []float32{0.229, 0.224, 0.225}))
-
-	loader, e := New(trainFn, vocab, trans, mbSize, mbSize, 1, false, "rgb")
+	ir, _ := NewTgzImageReader(trainFn, vocab, "rgb")
+	if e != nil {
+		log.Fatal(e)
+	}
+	loader, e := New(ir, trans, mbSize, mbSize, 1, false)
 	defer torch.FinishGC()
 	if e != nil {
 		log.Fatal(e)
