@@ -16,8 +16,8 @@ type Reader struct {
 	CurScanner int
 }
 
-// NewReader returns a Reader
-func NewReader(fns []string) (*Reader, error) {
+// NewReaderFromFile returns a Reader from files
+func NewReaderFromFile(fns []string) (*Reader, error) {
 	r := &Reader{
 		Files:    []*os.File{},
 		Scanners: []*recordio.Scanner{},
@@ -34,6 +34,30 @@ func NewReader(fns []string) (*Reader, error) {
 		s := recordio.NewScanner(f, idx, 0, idx.NumRecords())
 		r.Scanners = append(r.Scanners, s)
 		r.Files = append(r.Files, f)
+	}
+	return r, nil
+}
+
+// NewReaderFromTask returns a Reader from tasks
+func NewReaderFromTask(tasks []Task) (*Reader, error) {
+	r := &Reader{
+		Files:    []*os.File{},
+		Scanners: []*recordio.Scanner{},
+	}
+	for _, task := range tasks {
+		for _, shard := range task.Shards {
+			f, err := os.Open(shard.Name)
+			if err != nil {
+				return nil, err
+			}
+			idx, err := recordio.LoadIndex(f)
+			if err != nil {
+				return nil, err
+			}
+			s := recordio.NewScanner(f, idx, shard.Start, shard.End-shard.Start)
+			r.Scanners = append(r.Scanners, s)
+			r.Files = append(r.Files, f)
+		}
 	}
 	return r, nil
 }

@@ -97,7 +97,7 @@ func main() {
 		go func(i int) {
 			s := start[i]
 			e := end[i]
-			f, _ := create(fmt.Sprintf("%s/data-%05d", *output, i))
+			f, _ := create(fmt.Sprintf("%s/%s%05d", *output, torch_recordio.FilePrefix, i))
 			w := recordio.NewWriter(f, -1, -1)
 			for row := s; row < e; row++ {
 				ir, _ := loadImage(files[row], vocab)
