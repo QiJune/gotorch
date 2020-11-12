@@ -109,7 +109,11 @@ func imageNetLoader(fn string, vocab map[string]int, mbSize int, pinMemory, isTr
 			transforms.Normalize([]float32{0.485, 0.456, 0.406}, []float32{0.229, 0.224, 0.225}))
 	}
 
-	loader, e := imageloader.New(fn, vocab, trans, mbSize, mbSize*10, time.Now().UnixNano(), pinMemory, "rgb")
+	ir, e := imageloader.NewTgzImageReader(fn, vocab, "rgb")
+	if e != nil {
+		panic(e)
+	}
+	loader, e := imageloader.New(ir, trans, mbSize, mbSize*10, time.Now().UnixNano(), pinMemory)
 	if e != nil {
 		log.Fatal(e)
 	}

@@ -1,7 +1,6 @@
 package imageloader
 
 import (
-	"fmt"
 	"image"
 	"io"
 	"math/rand"
@@ -25,15 +24,9 @@ type miniBatch struct {
 	label torch.Tensor
 }
 
-// RGB color
-const RGB string = "rgb"
-
-// GRAY color
-const GRAY string = "gray"
-
 // ImageLoader struct
 type ImageLoader struct {
-	r          *tgz.Reader
+	ir         *ImageReader
 	vocab      map[string]int
 	sampleChan chan sample
 	mbChan     chan miniBatch
@@ -60,19 +53,14 @@ var (
 )
 
 // New returns an ImageLoader
-func New(fn string, vocab map[string]int, trans *transforms.ComposeTransformer,
-	mbSize, bufSize int, seed int64, pinMemory bool, colorSpace string) (*ImageLoader, error) {
+func New(ir *ImageReader, trans *transforms.ComposeTransformer,
+	mbSize, bufSize int, seed int64, pinMemory bool) (*ImageLoader, error) {
 	if mbSize <= 0 {
 		panic("mbSize(batch size) should be greater than 0")
 	}
-	r, e := tgz.OpenFile(fn)
-	if e != nil {
-		return nil, e
-	}
 	trans1, trans2 := splitComposeByToTensor(trans)
 	m := &ImageLoader{
-		r:           r,
-		vocab:       vocab,
+		ir:          ir,
 		sampleChan:  make(chan sample, mbSize*4),
 		mbChan:      make(chan miniBatch, 4),
 		shuffleChan: make(chan sample, mbSize*4),
@@ -81,7 +69,6 @@ func New(fn string, vocab map[string]int, trans *transforms.ComposeTransformer,
 		trans2:      trans2,
 		mbSize:      mbSize,
 		pinMemory:   pinMemory,
-		colorSpace:  colorSpace,
 		bufSize:     bufSize,
 		seed:        seed,
 	}
@@ -137,29 +124,19 @@ func (p *ImageLoader) readSamples() {
 	}()
 
 	for {
-		hdr, err := p.r.Next()
+		m, label, err := p.ir.ReadSample()
 		if err != nil {
 			if err != io.EOF {
 				p.errChan <- err
+				break
+			} else {
+				break
 			}
-			break
 		}
-		if !hdr.FileInfo().Mode().IsRegular() {
+		if m == nil {
 			continue
 		}
-		classStr := filepath.Base(filepath.Dir(hdr.Name))
-		label := p.vocab[classStr]
-		buffer := make([]byte, hdr.Size)
-		io.ReadFull(p.r, buffer)
-		m, err := decodeImage(buffer, p.colorSpace)
-		if err != nil {
-			p.errChan <- err
-			break
-		}
-		if m.Empty() {
-			panic("read invalid image content!")
-		}
-		p.sampleChan <- sample{p.trans1.Run(m).(gocv.Mat), int64(label)}
+		p.sampleChan <- sample{p.trans1.Run(*m).(gocv.Mat), int64(label)}
 	}
 }
 
@@ -273,22 +250,6 @@ func splitComposeByToTensor(compose *transforms.ComposeTransformer) (*transforms
 		}
 	}
 	return transforms.Compose(compose.Transforms[:idx]...), transforms.Compose(compose.Transforms[idx:]...)
-}
-
-func decodeImage(buffer []byte, colorSpace string) (gocv.Mat, error) {
-	var m gocv.Mat
-	var e error
-	if colorSpace == RGB {
-		m, e = gocv.IMDecode(buffer, gocv.IMReadColor)
-	} else if colorSpace == GRAY {
-		m, e = gocv.IMDecode(buffer, gocv.IMReadGrayScale)
-	} else {
-		return m, fmt.Errorf("Cannot read image with color space %v", colorSpace)
-	}
-	if colorSpace == RGB {
-		gocv.CvtColor(m, &m, gocv.ColorBGRToRGB)
-	}
-	return m, e
 }
 
 func newWorkingThreadGroup() {
