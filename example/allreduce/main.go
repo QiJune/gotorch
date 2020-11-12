@@ -19,6 +19,7 @@ var masterPort = flag.Int("masterPort", 11111, "The port of master node")
 var rank = flag.Int("rank", 0, "The rank of the current process")
 var size = flag.Int("size", 1, "The size of the processes")
 var dataset = flag.String("dataset", "", "The training dataset")
+var recordsPerShard = flag.Int("recordsPerShard", 4096, "maximum number of records per shard file")
 
 func getGrads(params []torch.Tensor) (grads []torch.Tensor) {
 	for _, p := range params {
@@ -68,7 +69,7 @@ func main() {
 	step := 0
 
 	for epoch := 0; epoch < epochs; epoch++ {
-		trainLoader := mnistLoader(*dataset, 1500, *rank, *size, int64(epoch))
+		trainLoader := mnistLoader(*dataset, *recordsPerShard, *rank, *size, int64(epoch))
 		for trainLoader.Scan() {
 			data, label := trainLoader.Minibatch()
 
